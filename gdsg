@@ -1,0 +1,406 @@
+local player = game:GetService("Players").LocalPlayer
+local character = player.Character or player.CharacterAdded:Wait()
+local UIS = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+local TeleportService = game:GetService("TeleportService")
+local TweenService = game:GetService("TweenService")
+local HttpService = game:GetService("HttpService")
+
+-- ===== CONFIGURATION ===== --
+local AUTHORIZED_USERS = {
+    ["Backdoor59k"] = "Code1",
+    ["Tap_kie"] = "Code2",
+    ["Yolmmkkm"] = "Code3",
+    ["KuddaOT"] = "7daysLimite",
+    ["notpixow1"] = "ilikemen"
+}
+local teleportEnabled = false
+local eSpamEnabled = true
+local teleportSpeed = 0.1 -- 10 teleports/second
+local eSpamCount = 3
+local eSpamDelay = 0.1
+local SCRIPT_NAME = "MultiUserTeleport"
+
+-- Function to get required key based on username
+local function getRequiredKey()
+    return AUTHORIZED_USERS[player.Name] or "InvalidKey"
+end
+
+local function isAuthorizedUser()
+    return AUTHORIZED_USERS[player.Name] ~= nil
+end
+
+-- ===== TELEPORT LOCATIONS ===== --
+local teleportSpots = {
+    Vector3.new(93418.1875, 14483.146484375, 563.432373046875),
+    Vector3.new(93435.984375, 14483.1630859375, 565.8464965820312),
+    Vector3.new(93429.65625, 14482.583984375, 579.4680786132812)
+}
+local currentSpot = 1
+
+-- ===== SMART SERVER HOP ===== --
+local function getServers()
+    local success, result = pcall(function()
+        return HttpService:JSONDecode(game:HttpGet(
+            "https://games.roblox.com/v1/games/"..game.PlaceId.."/servers/Public?sortOrder=Asc&limit=100"
+        ))
+    end)
+    return success and result.data or {}
+end
+
+local function smartServerHop()
+    local servers = getServers()
+    local bestServer
+    local lowestPlayers = math.huge
+    
+    for _, server in ipairs(servers) do
+        if server.playing and server.playing < lowestPlayers and server.id ~= game.JobId then
+            lowestPlayers = server.playing
+            bestServer = server.id
+        end
+    end
+    
+    if bestServer then
+        TeleportService:TeleportToPlaceInstance(game.PlaceId, bestServer, player)
+    else
+        TeleportService:Teleport(game.PlaceId, player)
+    end
+end
+
+-- ===== UI CREATION ===== --
+local function createUI()
+    local gui = Instance.new("ScreenGui")
+    gui.Name = SCRIPT_NAME.."_GUI"
+    gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    gui.Parent = player:WaitForChild("PlayerGui")
+
+    -- Main Frame
+    local mainFrame = Instance.new("Frame")
+    mainFrame.Name = "MainFrame"
+    mainFrame.Size = UDim2.new(0, 300, 0, 350)
+    mainFrame.Position = UDim2.new(0.5, -150, 0.5, -175)
+    mainFrame.BackgroundColor3 = Color3.fromRGB(20, 25, 35)
+    mainFrame.BackgroundTransparency = 0.1
+    mainFrame.BorderSizePixel = 0
+    mainFrame.ClipsDescendants = true
+    mainFrame.Parent = gui
+
+    -- Header (Drag Handle)
+    local header = Instance.new("TextButton")
+    header.Name = "Header"
+    header.Text = ""
+    header.Size = UDim2.new(1, 0, 0, 40)
+    header.BackgroundColor3 = Color3.fromRGB(0, 90, 180)
+    header.BorderSizePixel = 0
+    header.AutoButtonColor = false
+    header.Parent = mainFrame
+
+    -- Title
+    local title = Instance.new("TextLabel")
+    title.Text = "⚡ TELEPORT CONTROL"
+    title.Size = UDim2.new(1, -50, 1, 0)
+    title.Position = UDim2.new(0, 10, 0, 0)
+    title.BackgroundTransparency = 1
+    title.TextColor3 = Color3.fromRGB(255, 255, 255)
+    title.Font = Enum.Font.GothamBold
+    title.TextSize = 16
+    title.TextXAlignment = Enum.TextXAlignment.Left
+    title.Parent = header
+
+    -- Close Button
+    local closeBtn = Instance.new("TextButton")
+    closeBtn.Name = "CloseButton"
+    closeBtn.Text = "×"
+    closeBtn.Size = UDim2.new(0, 40, 1, 0)
+    closeBtn.Position = UDim2.new(1, -40, 0, 0)
+    closeBtn.BackgroundColor3 = Color3.fromRGB(180, 0, 0)
+    closeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    closeBtn.Font = Enum.Font.GothamBlack
+    closeBtn.TextSize = 20
+    closeBtn.Parent = header
+
+    -- Content Frame
+    local contentFrame = Instance.new("Frame")
+    contentFrame.Name = "Content"
+    contentFrame.Size = UDim2.new(1, -20, 1, -60)
+    contentFrame.Position = UDim2.new(0, 10, 0, 45)
+    contentFrame.BackgroundTransparency = 1
+    contentFrame.Parent = mainFrame
+
+    -- Key Input
+    local keyFrame = Instance.new("Frame")
+    keyFrame.Name = "KeyAuth"
+    keyFrame.Size = UDim2.new(1, 0, 0, 120)
+    keyFrame.Position = UDim2.new(0, 0, 0, 0)
+    keyFrame.BackgroundColor3 = Color3.fromRGB(25, 30, 40)
+    keyFrame.BorderSizePixel = 0
+    keyFrame.Parent = contentFrame
+
+    local keyTitle = Instance.new("TextLabel")
+    keyTitle.Text = "ENTER LICENSE KEY:"
+    keyTitle.Size = UDim2.new(1, 0, 0, 30)
+    keyTitle.Position = UDim2.new(0, 0, 0, 0)
+    keyTitle.BackgroundColor3 = Color3.fromRGB(0, 70, 140)
+    keyTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
+    keyTitle.Font = Enum.Font.GothamBold
+    keyTitle.TextSize = 14
+    keyTitle.Parent = keyFrame
+
+    local keyBox = Instance.new("TextBox")
+    keyBox.Name = "KeyInput"
+    keyBox.Size = UDim2.new(1, 0, 0, 40)
+    keyBox.Position = UDim2.new(0, 0, 0, 35)
+    keyBox.BackgroundColor3 = isAuthorizedUser() and Color3.fromRGB(35, 40, 50) or Color3.fromRGB(50, 20, 20)
+    keyBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+    keyBox.Font = Enum.Font.Gotham
+    keyBox.PlaceholderText = isAuthorizedUser() and "Enter your key" or "Access Denied"
+    keyBox.PlaceholderColor3 = isAuthorizedUser() and Color3.fromRGB(180, 180, 180) or Color3.fromRGB(180, 80, 80)
+    keyBox.Text = ""
+    keyBox.TextSize = 16
+    keyBox.TextEditable = isAuthorizedUser()
+    keyBox.Parent = keyFrame
+
+    local submitBtn = Instance.new("TextButton")
+    submitBtn.Name = "SubmitKey"
+    submitBtn.Text = isAuthorizedUser() and "🔑 ACTIVATE" or "⛔ ACCESS DENIED"
+    submitBtn.Size = UDim2.new(1, 0, 0, 30)
+    submitBtn.Position = UDim2.new(0, 0, 0, 80)
+    submitBtn.BackgroundColor3 = isAuthorizedUser() and Color3.fromRGB(0, 120, 255) or Color3.fromRGB(120, 0, 0)
+    submitBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    submitBtn.Font = Enum.Font.GothamBold
+    submitBtn.TextSize = 14
+    submitBtn.Parent = keyFrame
+
+    -- Control Buttons
+    local buttons = {
+        {
+            Name = "TeleportBtn",
+            Text = "🚀 START TELEPORT",
+            Color = Color3.fromRGB(0, 150, 80),
+            Size = UDim2.new(1, 0, 0, 50),
+            Position = UDim2.new(0, 0, 0, 130),
+            Visible = false
+        },
+        {
+            Name = "ESpamBtn",
+            Text = "🔘 AUTO E-SPAM: ON",
+            Color = Color3.fromRGB(0, 120, 200),
+            Size = UDim2.new(1, 0, 0, 50),
+            Position = UDim2.new(0, 0, 0, 190),
+            Visible = false
+        },
+        {
+            Name = "HopBtn",
+            Text = "🔄 SERVER HOP (LOWEST POP)",
+            Color = Color3.fromRGB(0, 100, 180),
+            Size = UDim2.new(1, 0, 0, 50),
+            Position = UDim2.new(0, 0, 0, 250),
+            Visible = false
+        }
+    }
+
+    local buttonInstances = {}
+    for _, btnData in ipairs(buttons) do
+        local btn = Instance.new("TextButton")
+        btn.Name = btnData.Name
+        btn.Text = btnData.Text
+        btn.Size = btnData.Size
+        btn.Position = btnData.Position
+        btn.BackgroundColor3 = btnData.Color
+        btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+        btn.Font = Enum.Font.GothamBold
+        btn.TextSize = 14
+        btn.Visible = btnData.Visible
+        btn.Parent = contentFrame
+        
+        btn.MouseEnter:Connect(function()
+            TweenService:Create(btn, TweenInfo.new(0.2), {
+                BackgroundColor3 = btnData.Color + Color3.new(0.1, 0.1, 0.1)
+            }):Play()
+        end)
+        btn.MouseLeave:Connect(function()
+            TweenService:Create(btn, TweenInfo.new(0.2), {
+                BackgroundColor3 = btnData.Color
+            }):Play()
+        end)
+        
+        buttonInstances[btnData.Name] = btn
+    end
+
+    -- Status Label
+    local statusLabel = Instance.new("TextLabel")
+    statusLabel.Name = "Status"
+    statusLabel.Text = ""
+    statusLabel.Size = UDim2.new(1, 0, 0, 20)
+    statusLabel.Position = UDim2.new(0, 0, 1, -25)
+    statusLabel.BackgroundTransparency = 1
+    statusLabel.TextColor3 = Color3.fromRGB(255, 80, 80)
+    statusLabel.Font = Enum.Font.Gotham
+    statusLabel.TextSize = 12
+    statusLabel.Visible = false
+    statusLabel.Parent = contentFrame
+
+    -- Dragging Functionality
+    local dragging
+    local dragInput
+    local dragStart
+    local startPos
+
+    local function update(input)
+        local delta = input.Position - dragStart
+        mainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+    end
+
+    header.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = true
+            dragStart = input.Position
+            startPos = mainFrame.Position
+            
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then
+                    dragging = false
+                end
+            end)
+        end
+    end)
+
+    header.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement then
+            dragInput = input
+        end
+    end)
+
+    UIS.InputChanged:Connect(function(input)
+        if input == dragInput and dragging then
+            update(input)
+        end
+    end)
+
+    -- Close Button
+    closeBtn.MouseButton1Click:Connect(function()
+        gui:Destroy()
+    end)
+
+    -- Key Submission
+    local authenticated = false
+    submitBtn.MouseButton1Click:Connect(function()
+        if not isAuthorizedUser() then
+            statusLabel.Text = "⛔ USERNAME NOT AUTHORIZED"
+            statusLabel.Visible = true
+            return
+        end
+
+        if keyBox.Text == getRequiredKey() then
+            authenticated = true
+            keyFrame.Visible = false
+            statusLabel.Visible = false
+            for _, btn in pairs(buttonInstances) do
+                btn.Visible = true
+            end
+        else
+            statusLabel.Text = "❌ INVALID KEY FOR "..player.Name
+            statusLabel.Visible = true
+            -- Shake effect
+            local shake = 5
+            for i = 1, 3 do
+                keyBox.Position = UDim2.new(0, shake, 0, 35)
+                task.wait(0.05)
+                keyBox.Position = UDim2.new(0, -shake, 0, 35)
+                task.wait(0.05)
+                keyBox.Position = UDim2.new(0, 0, 0, 35)
+            end
+        end
+    end)
+
+    return {
+        GUI = gui,
+        Buttons = buttonInstances,
+        Authenticated = function() return authenticated end
+    }
+end
+
+-- ===== TELEPORT FUNCTIONS ===== --
+local function spamE()
+    if not eSpamEnabled then return end
+    
+    -- More controlled E pressing
+    for i = 1, eSpamCount do
+        UIS:SendKeyEvent(true, Enum.KeyCode.E, false, nil)
+        task.wait(0.05)
+        UIS:SendKeyEvent(false, Enum.KeyCode.E, false, nil)
+        if i < eSpamCount then
+            task.wait(eSpamDelay)
+        end
+    end
+end
+
+local lastTeleport = 0
+local function teleportSpam()
+    if not character:FindFirstChild("HumanoidRootPart") then return end
+    
+    -- Throttle teleports
+    local now = tick()
+    if now - lastTeleport < teleportSpeed then return end
+    lastTeleport = now
+    
+    currentSpot = currentSpot % #teleportSpots + 1
+    character.HumanoidRootPart.CFrame = CFrame.new(teleportSpots[currentSpot])
+    
+    -- Only spam E occasionally
+    if math.random(1, 3) == 1 then
+        spamE()
+    end
+end
+
+-- ===== MAIN SCRIPT ===== --
+local ui = createUI()
+
+-- Make all ProximityPrompts instant
+for _, v in pairs(workspace:GetDescendants()) do
+    if v:IsA("ProximityPrompt") then
+        v.HoldDuration = 0
+        v.ClickablePrompt = true
+    end
+end
+workspace.DescendantAdded:Connect(function(v)
+    if v:IsA("ProximityPrompt") then
+        v.HoldDuration = 0
+        v.ClickablePrompt = true
+    end
+end)
+
+-- Connect UI Buttons
+ui.Buttons.TeleportBtn.MouseButton1Click:Connect(function()
+    if not ui.Authenticated() then return end
+    teleportEnabled = not teleportEnabled
+    ui.Buttons.TeleportBtn.Text = teleportEnabled and "🛑 STOP TELEPORT" or "🚀 START TELEPORT"
+    ui.Buttons.TeleportBtn.BackgroundColor3 = teleportEnabled and Color3.fromRGB(180, 0, 0) or Color3.fromRGB(0, 150, 80)
+end)
+
+ui.Buttons.ESpamBtn.MouseButton1Click:Connect(function()
+    if not ui.Authenticated() then return end
+    eSpamEnabled = not eSpamEnabled
+    ui.Buttons.ESpamBtn.Text = eSpamEnabled and "🔘 E-SPAM: ON" or "❌ E-SPAM: OFF"
+    ui.Buttons.ESpamBtn.BackgroundColor3 = eSpamEnabled and Color3.fromRGB(0, 120, 200) or Color3.fromRGB(120, 0, 0)
+end)
+
+ui.Buttons.HopBtn.MouseButton1Click:Connect(function()
+    if not ui.Authenticated() then return end
+    smartServerHop()
+end)
+
+-- Main Loop
+RunService.Heartbeat:Connect(function()
+    if ui.Authenticated() and teleportEnabled then
+        teleportSpam()
+    end
+end)
+
+-- Handle character changes
+player.CharacterAdded:Connect(function(newChar)
+    character = newChar
+    if ui.Authenticated() and teleportEnabled then
+        teleportSpam()
+    end
+end)
