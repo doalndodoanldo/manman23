@@ -13,6 +13,8 @@ local AUTHORIZED_USERS = {
     ["Yolmmkkm"] = "Code3",
     ["KuddaOT"] = "7daysLimite",
     ["notpixow1"] = "ilikemen"
+
+
 }
 local teleportEnabled = false
 local eSpamEnabled = true
